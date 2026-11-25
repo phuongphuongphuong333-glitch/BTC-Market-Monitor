@@ -2,6 +2,8 @@ name: ntfy notification test
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: read
@@ -10,6 +12,13 @@ jobs:
   send-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Stop after temporary test window
+        run: |
+          NOW=$(date -u +%Y%m%d%H%M)
+          if [ "$NOW" -ge "202611250510" ]; then
+            echo "Temporary test window ended; no notification sent."
+            exit 0
+          fi
       - name: Validate ntfy topic
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
@@ -22,13 +31,13 @@ jobs:
             echo "NTFY_TOPIC has an invalid format"
             exit 1
           fi
-      - name: Send test notification
+      - name: Send scheduled test notification
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: |
           curl --fail --silent --show-error --retry 2 \
-            -H "Title: BTC Market Monitor" \
+            -H "Title: BTC Market Monitor - TEST" \
             -H "Priority: default" \
-            -H "Tags: chart_with_upwards_trend" \
-            -d "GitHub Actions da gui thong bao thu thanh cong. Chua phai bao cao thi truong." \
+            -H "Tags: test_tube" \
+            -d "Thong bao thu tu GitHub Actions. Chu ky thu nghiem 5 phut; chua phai du lieu giao dich." \
             "https://ntfy.sh/$NTFY_TOPIC"
