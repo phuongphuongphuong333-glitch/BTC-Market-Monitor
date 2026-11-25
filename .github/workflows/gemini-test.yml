@@ -1,0 +1,43 @@
+name: Gemini API connection test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gemini-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Test Gemini API
+        id: gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -o pipefail
+          python src/gemini_analyzer.py | tee gemini-result.txt
+      - name: Send result to ntfy
+        if: always() && steps.gemini.outcome == 'success'
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then
+            echo "Missing repository secret: NTFY_TOPIC"
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 2 \
+            -H "Title: BTC Market Monitor - Gemini test" \
+            -H "Priority: default" \
+            -H "Tags: robot" \
+            --data-binary @gemini-result.txt \
+            "https://ntfy.sh/$NTFY_TOPIC"
